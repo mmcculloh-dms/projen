@@ -1,8 +1,8 @@
-import { SpawnOptions, spawnSync } from 'child_process';
 import { existsSync, readFileSync, statSync } from 'fs';
 import { join, resolve } from 'path';
 import { format } from 'util';
 import * as chalk from 'chalk';
+import { exec, ShellReturnValue } from 'shelljs';
 import * as logging from '../logging';
 import { TasksManifest, TaskSpec } from './model';
 import { Tasks } from './tasks';
@@ -151,7 +151,7 @@ class RunTask {
             ?? 'unknown error';
           throw new Error(`unable to evaluate environment variable ${key}=${value}: ${error}`);
         }
-        output[key] = result.stdout.toString('utf-8').trim();
+        output[key] = result.stdout?.trim();
       } else {
         output[key] = value;
       }
@@ -198,23 +198,30 @@ class RunTask {
       throw new Error(`invalid workdir (cwd): ${cwd} must be an existing directory`);
     }
 
-    return spawnSync(options.command, {
-      ...options,
-      cwd,
-      shell: true,
-      stdio: 'inherit',
-      env: this.env,
-      ...options.spawnOptions,
-    });
+    try {
+      const result: ShellReturnValue = exec(options.command, {
+        ...options,
+        cwd,
+        env: this.env,
+      });
+
+      return {
+        status: result.code,
+        stdout: result.stdout,
+        stderr: result.stderr,
+      };
+    } catch (ex) {
+      return {
+        status: 999,
+        error: ex,
+      };
+    }
   }
 
   private shellEval(options: ShellOptions) {
     return this.shell({
       quiet: true,
       ...options,
-      spawnOptions: {
-        stdio: ['inherit', 'pipe', 'inherit'],
-      },
     });
   }
 }
@@ -226,7 +233,6 @@ interface ShellOptions {
    */
   readonly cwd?: string;
   readonly logprefix?: string;
-  readonly spawnOptions?: SpawnOptions;
   /** @default false */
   readonly quiet?: boolean;
 }
