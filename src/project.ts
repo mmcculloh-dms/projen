@@ -487,7 +487,7 @@ export class Project {
     }
 
     // if this is running inside a test, use a temp directory (unless cwd is aleady under tmp)
-    if (IS_TEST_RUN) {
+    if (IS_TEST_RUN && !outdirOption) {
       const realCwd = realpathSync(process.cwd());
       const realTmp = realpathSync(tmpdir());
 
